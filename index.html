@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>图文带货视频生成器</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            if (typeof html2canvas === 'undefined') {
+                console.warn('html2canvas CDN加载失败，尝试本地加载');
+                var script = document.createElement('script');
+                script.src = 'html2canvas.min.js';
+                script.onload = function() {
+                    console.log('html2canvas本地加载成功');
+                };
+                script.onerror = function() {
+                    console.error('html2canvas加载失败');
+                };
+                document.head.appendChild(script);
+            }
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -294,6 +310,7 @@
             width: 120px;
             height: 6px;
             -webkit-appearance: none;
+            appearance: none;
             background: rgba(255, 255, 255, 0.3);
             border-radius: 3px;
             outline: none;
@@ -301,6 +318,7 @@
 
         .size-row input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
+            appearance: none;
             width: 16px;
             height: 16px;
             background: #fff;
@@ -881,15 +899,27 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
         });
 
         downloadBtn.addEventListener('click', function() {
+            if (typeof html2canvas === 'undefined') {
+                alert('截图功能加载失败，请刷新页面重试');
+                return;
+            }
+            
             const singleContainer = document.getElementById('single-container');
             const batchContainer = document.getElementById('batch-container');
             const container = batchContainer.style.display === 'block' ? batchContainer : singleContainer;
+            
+            const imageContainer = document.getElementById('image-container');
+            if (!imageContainer.src || imageContainer.src === '') {
+                alert('请先设置封面图片');
+                return;
+            }
             
             html2canvas(container, {
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
-                scale: 2
+                scale: 2,
+                logging: false
             }).then(function(canvas) {
                 const targetWidth = 1080;
                 const targetHeight = 1920;
@@ -922,7 +952,7 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                 alert('截图已添加到批量上传列表！（9:16比例，1080×1920分辨率）');
             }).catch(function(error) {
                 console.error('截图失败:', error);
-                alert('截图失败，请重试');
+                alert('截图失败，请检查浏览器控制台获取详细信息，或尝试更换浏览器');
             });
         });
 
