@@ -477,7 +477,7 @@ async function generateVideo() {
 
     const fps = 30;
     const frameDuration = 1000 / fps;
-    const imageDuration = 2000;
+    const imageDuration = 3000;
     const transitionDuration = 500;
 
     const totalFrames = batchImages.length * (imageDuration / (1000 / fps)) + 
@@ -565,7 +565,25 @@ async function generateVideo() {
         for (let j = 0; j < imageFrames; j++) {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(currentImg, 0, 0, width, height);
+            
+            const imgRatio = currentImg.width / currentImg.height;
+            const containerRatio = width / height;
+            
+            let drawWidth, drawHeight, drawX, drawY;
+            
+            if (imgRatio > containerRatio) {
+                drawWidth = width;
+                drawHeight = width / imgRatio;
+                drawX = 0;
+                drawY = (height - drawHeight) / 2;
+            } else {
+                drawHeight = height;
+                drawWidth = height * imgRatio;
+                drawX = (width - drawWidth) / 2;
+                drawY = 0;
+            }
+            
+            ctx.drawImage(currentImg, drawX, drawY, drawWidth, drawHeight);
             await new Promise(r => setTimeout(r, frameDuration));
             currentFrame++;
             updateProgress(currentFrame, totalFrames);
@@ -633,59 +651,96 @@ async function drawTransition(ctx, currentImg, nextImg, width, height, duration,
     return currentFrame;
 }
 
+function getImageDrawParams(img, width, height) {
+    const imgRatio = img.width / img.height;
+    const containerRatio = width / height;
+    
+    if (imgRatio > containerRatio) {
+        return {
+            drawWidth: width,
+            drawHeight: width / imgRatio,
+            drawX: 0,
+            drawY: (height - width / imgRatio) / 2
+        };
+    } else {
+        return {
+            drawWidth: height * imgRatio,
+            drawHeight: height,
+            drawX: (width - height * imgRatio) / 2,
+            drawY: 0
+        };
+    }
+}
+
 function drawSlideLeft(ctx, currentImg, nextImg, width, height, progress) {
-    ctx.drawImage(currentImg, width * progress, 0, width, height);
-    ctx.drawImage(nextImg, width * (progress - 1), 0, width, height);
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
+    ctx.drawImage(currentImg, currentParams.drawX + width * progress, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(nextImg, nextParams.drawX + width * (progress - 1), nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
 }
 
 function drawSlideRight(ctx, currentImg, nextImg, width, height, progress) {
-    ctx.drawImage(currentImg, -width * progress, 0, width, height);
-    ctx.drawImage(nextImg, width * (1 - progress), 0, width, height);
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
+    ctx.drawImage(currentImg, currentParams.drawX - width * progress, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(nextImg, nextParams.drawX + width * (1 - progress), nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
 }
 
 function drawSlideUp(ctx, currentImg, nextImg, width, height, progress) {
-    ctx.drawImage(currentImg, 0, height * progress, width, height);
-    ctx.drawImage(nextImg, 0, height * (progress - 1), width, height);
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
+    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY + height * progress, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY + height * (progress - 1), nextParams.drawWidth, nextParams.drawHeight);
 }
 
 function drawSlideDown(ctx, currentImg, nextImg, width, height, progress) {
-    ctx.drawImage(currentImg, 0, -height * progress, width, height);
-    ctx.drawImage(nextImg, 0, height * (1 - progress), width, height);
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
+    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY - height * progress, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY + height * (1 - progress), nextParams.drawWidth, nextParams.drawHeight);
 }
 
 function drawFade(ctx, currentImg, nextImg, width, height, progress) {
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
+    
     ctx.globalAlpha = 1 - progress;
-    ctx.drawImage(currentImg, 0, 0, width, height);
+    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
     ctx.globalAlpha = progress;
-    ctx.drawImage(nextImg, 0, 0, width, height);
+    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
     ctx.globalAlpha = 1;
 }
 
 function drawFlip(ctx, currentImg, nextImg, width, height, progress) {
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
     const centerX = width / 2;
+    const centerY = height / 2;
     const rotation = progress * Math.PI;
     
     ctx.save();
-    ctx.translate(centerX, height / 2);
+    ctx.translate(centerX, centerY);
     
     ctx.save();
     ctx.rotate(rotation);
     ctx.globalAlpha = Math.cos(rotation);
-    ctx.translate(-centerX, -height / 2);
-    ctx.drawImage(currentImg, 0, 0, width, height);
+    ctx.translate(-centerX, -centerY);
+    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
     ctx.restore();
     
     ctx.save();
     ctx.rotate(rotation - Math.PI);
     ctx.globalAlpha = Math.abs(Math.cos(rotation - Math.PI));
-    ctx.translate(-centerX, -height / 2);
-    ctx.drawImage(nextImg, 0, 0, width, height);
+    ctx.translate(-centerX, -centerY);
+    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
     ctx.restore();
     
     ctx.restore();
 }
 
 function drawZoom(ctx, currentImg, nextImg, width, height, progress) {
+    const currentParams = getImageDrawParams(currentImg, width, height);
+    const nextParams = getImageDrawParams(nextImg, width, height);
     const zoomOut = 1 + progress * 0.3;
     const zoomIn = 1 - progress * 0.3;
     
@@ -693,14 +748,14 @@ function drawZoom(ctx, currentImg, nextImg, width, height, progress) {
     ctx.globalAlpha = 1 - progress;
     ctx.translate(width / 2, height / 2);
     ctx.scale(zoomOut, zoomOut);
-    ctx.drawImage(currentImg, -width / 2, -height / 2, width, height);
+    ctx.drawImage(currentImg, currentParams.drawX - width / 2, currentParams.drawY - height / 2, currentParams.drawWidth, currentParams.drawHeight);
     ctx.restore();
     
     ctx.save();
     ctx.globalAlpha = progress;
     ctx.translate(width / 2, height / 2);
     ctx.scale(zoomIn, zoomIn);
-    ctx.drawImage(nextImg, -width / 2, -height / 2, width, height);
+    ctx.drawImage(nextImg, nextParams.drawX - width / 2, nextParams.drawY - height / 2, nextParams.drawWidth, nextParams.drawHeight);
     ctx.restore();
 }
 
