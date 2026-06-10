@@ -72,6 +72,27 @@
             color: #333;
             border: 1px solid #e0e0e0;
         }
+
+        .transition-select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+            min-width: 120px;
+        }
+
+        .transition-select:hover {
+            border-color: #2c5282;
+        }
+
+        .transition-select:focus {
+            outline: none;
+            border-color: #2c5282;
+            box-shadow: 0 0 0 2px rgba(44, 82, 130, 0.2);
+        }
         
         .btn-secondary:hover {
             background: #f8f9fa;
@@ -560,6 +581,16 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                     <button class="btn btn-secondary" id="back-to-single">← 返回</button>
                     <button class="btn btn-primary btn-music" id="add-image-btn">添加图片</button>
                     <button class="btn btn-primary btn-music" id="add-audio-btn">添加背景音乐</button>
+                    <select id="transition-select" class="transition-select">
+                        <option value="fade">淡入淡出</option>
+                        <option value="slide">滑动进入</option>
+                        <option value="zoom">缩放效果</option>
+                        <option value="rotate">旋转进入</option>
+                        <option value="slide-left">从左滑入</option>
+                        <option value="slide-right">从右滑入</option>
+                        <option value="slide-up">从上方滑入</option>
+                        <option value="slide-down">从下方滑入</option>
+                    </select>
                     <button class="btn btn-primary btn-generate" id="generate-video-btn">生成有声视频</button>
                     <button class="btn btn-secondary btn-generate" id="generate-video-silent-btn">生成无声视频</button>
                 </div>
@@ -1015,10 +1046,11 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                 return;
             }
             
+            const transitionType = document.getElementById('transition-select').value;
             generateVideoBtn.disabled = true;
             generateVideoBtn.textContent = '生成中...';
             
-            generateSlideshowVideo(batchImages, false).then(function(blob) {
+            generateSlideshowVideo(batchImages, false, transitionType).then(function(blob) {
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = 'slideshow_' + Date.now() + '.mp4';
@@ -1045,10 +1077,11 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                 return;
             }
             
+            const transitionType = document.getElementById('transition-select').value;
             generateVideoSilentBtn.disabled = true;
             generateVideoSilentBtn.textContent = '生成中...';
             
-            generateSlideshowVideo(batchImages, true).then(function(blob) {
+            generateSlideshowVideo(batchImages, true, transitionType).then(function(blob) {
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = 'slideshow_silent_' + Date.now() + '.mp4';
@@ -1068,7 +1101,69 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
             });
         });
 
-        async function generateSlideshowVideo(images, silent) {
+        function drawTransition(ctx, currentImg, nextImg, progress, type, width, height) {
+                ctx.clearRect(0, 0, width, height);
+                
+                switch (type) {
+                    case 'fade':
+                        ctx.globalAlpha = 1 - progress;
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.globalAlpha = progress;
+                        ctx.drawImage(nextImg, 0, 0, width, height);
+                        break;
+                        
+                    case 'slide':
+                    case 'slide-right':
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.drawImage(nextImg, width * (1 - progress), 0, width, height);
+                        break;
+                        
+                    case 'slide-left':
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.drawImage(nextImg, -width * (1 - progress), 0, width, height);
+                        break;
+                        
+                    case 'slide-up':
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.drawImage(nextImg, 0, -height * (1 - progress), width, height);
+                        break;
+                        
+                    case 'slide-down':
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.drawImage(nextImg, 0, height * (1 - progress), width, height);
+                        break;
+                        
+                    case 'zoom':
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.save();
+                        const scale = 0.8 + progress * 0.2;
+                        ctx.globalAlpha = progress;
+                        ctx.translate(width / 2, height / 2);
+                        ctx.scale(scale, scale);
+                        ctx.drawImage(nextImg, -width / 2, -height / 2, width, height);
+                        ctx.restore();
+                        break;
+                        
+                    case 'rotate':
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.save();
+                        ctx.globalAlpha = progress;
+                        ctx.translate(width / 2, height / 2);
+                        ctx.rotate(progress * Math.PI / 4);
+                        ctx.drawImage(nextImg, -width / 2, -height / 2, width, height);
+                        ctx.restore();
+                        break;
+                        
+                    default:
+                        ctx.globalAlpha = 1 - progress;
+                        ctx.drawImage(currentImg, 0, 0, width, height);
+                        ctx.globalAlpha = progress;
+                        ctx.drawImage(nextImg, 0, 0, width, height);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+        async function generateSlideshowVideo(images, silent, transitionType = 'fade') {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
@@ -1203,12 +1298,7 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                 if (nextImg) {
                     for (let frame = 0; frame < framesPerTransition; frame++) {
                         const progress = frame / framesPerTransition;
-                        drawFrame(currentImg);
-                        ctx.save();
-                        ctx.globalAlpha = progress;
-                        const slideOffset = canvas.width * (1 - progress);
-                        ctx.drawImage(nextImg, slideOffset, 0, canvas.width, canvas.height);
-                        ctx.restore();
+                        drawTransition(ctx, currentImg, nextImg, progress, transitionType, canvas.width, canvas.height);
                         await delay(Math.max(1, Math.floor(1000 / fps)));
                         frameCount++;
                     }
