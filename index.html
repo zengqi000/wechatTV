@@ -529,6 +529,7 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
         <button class="btn btn-primary" id="upload-btn">替换图片</button>
         <button class="btn btn-primary" id="batch-upload-btn">下一步</button>
         <button class="btn btn-secondary" id="download-btn">截屏</button>
+        <button class="btn btn-secondary" id="tutorial-btn">使用教程</button>
         <input type="file" id="batch-file-input" accept="image/*" multiple style="display: none;">
         <input type="file" id="audio-file-input" accept="audio/*" style="display: none;">
     </div>
@@ -766,6 +767,63 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                 console.error('截图失败:', error);
                 alert('截图失败，请重试');
             });
+        });
+
+        const tutorialBtn = document.getElementById('tutorial-btn');
+        tutorialBtn.addEventListener('click', function() {
+            const tutorialContent = `工具使用教程：
+
+1、设置背景图，点【替换图片】，上传一张照片；
+
+2、设置文案：在贴纸输入框输入第一张图片的文案，确定后点截屏按钮，图片会自动保存；
+
+3、重复步骤1，把每张图片的文案都截屏；
+
+4、生成视频：点【下一步】，可看到刚才截屏的图片，可删除也可以直接【添加图片】，移动图片可以更换位置；
+
+5、点添加背景音乐（如果不添加背景音乐，会按默认音乐）
+
+6、点【生成有声视频】，等待生成中，生成成功后有提示；
+
+7、点【生成无声视频】，生成成功后，在视频号上发布的时候，可再添加视频。
+
+
+不要删除文件夹的文件，定期更新，最新工具可添加v；Xiaoqi36886
+
+
+
+微信视频号注意事项：
+
+1、养号：每天刷几次，搜索框输入你想要带的书籍，搜索后多关注多收藏。
+
+2、实名认证并开通橱窗；
+
+3、选品，选择你要推广的书籍；
+
+4、多个视频号同时发布不同的视频。
+
+5、有一个视频爆的时候，可以再发一次相同的文案视频，同样也会爆。
+
+
+文案来源：
+
+1、前期：刷同行视频，找点赞量高的视频，复制她的文案直接用，所有文案保存在excel中；
+
+2、中期：把excel给豆包，让开头结尾不变，把中间的内容改掉。
+
+3、后期：把爆光多的视频文案整理在一起，丢给AI，让生成类似的文案，自己再适当的修改一下。`;
+            
+            const blob = new Blob([tutorialContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '使用教程.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert('使用教程已下载！');
         });
 
         batchUploadBtn.addEventListener('click', function() {
