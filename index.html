@@ -1258,6 +1258,7 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
         });
 
         function drawTransition(ctx, currentImg, nextImg, progress, type, width, height) {
+                ctx.save();
                 ctx.clearRect(0, 0, width, height);
                 
                 switch (type) {
@@ -1291,23 +1292,19 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                         
                     case 'zoom':
                         ctx.drawImage(currentImg, 0, 0, width, height);
-                        ctx.save();
-                        const scale = 0.8 + progress * 0.2;
                         ctx.globalAlpha = progress;
+                        const scale = 0.8 + progress * 0.2;
                         ctx.translate(width / 2, height / 2);
                         ctx.scale(scale, scale);
                         ctx.drawImage(nextImg, -width / 2, -height / 2, width, height);
-                        ctx.restore();
                         break;
                         
                     case 'rotate':
                         ctx.drawImage(currentImg, 0, 0, width, height);
-                        ctx.save();
                         ctx.globalAlpha = progress;
                         ctx.translate(width / 2, height / 2);
                         ctx.rotate(progress * Math.PI / 4);
                         ctx.drawImage(nextImg, -width / 2, -height / 2, width, height);
-                        ctx.restore();
                         break;
                         
                     default:
@@ -1316,7 +1313,7 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                         ctx.globalAlpha = progress;
                         ctx.drawImage(nextImg, 0, 0, width, height);
                 }
-                ctx.globalAlpha = 1;
+                ctx.restore();
             }
 
         async function generateSlideshowVideo(images, silent, transitionType = 'fade') {
@@ -1405,8 +1402,8 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
             const totalImageDuration = audioDuration > 0 ? audioDuration - transitionDuration * (images.length - 1) - 2 : images.length * baseFrameDuration;
             const avgFrameDuration = Math.max(1, totalImageDuration / images.length);
             
-            const framesPerImage = Math.floor((avgFrameDuration - transitionDuration) * fps);
-            const framesPerTransition = Math.floor(transitionDuration * fps);
+            const framesPerImage = Math.max(10, Math.floor((avgFrameDuration - transitionDuration) * fps));
+            const framesPerTransition = Math.max(3, Math.floor(transitionDuration * fps));
             
             console.log('视频参数:', {
                 images: images.length,
@@ -1429,10 +1426,8 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
             }
             
             async function drawFrame(image, offsetX = 0, alpha = 1) {
-                if (alpha < 1) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                }
                 ctx.save();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.globalAlpha = alpha;
                 ctx.drawImage(image, offsetX, 0, canvas.width, canvas.height);
                 ctx.restore();
