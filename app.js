@@ -29,6 +29,7 @@ function showNotification(message, duration = 2000) {
 const fileInput = document.getElementById('file-input');
 const batchFileInput = document.getElementById('batch-file-input');
 const imageContainer = document.getElementById('image-container');
+const bgImage = document.getElementById('bg-image');
 const uploadOverlay = document.getElementById('upload-overlay');
 const uploadBtn = document.getElementById('upload-btn');
 const batchUploadBtn = document.getElementById('batch-upload-btn');
@@ -51,6 +52,14 @@ const generateVideoBtn = document.getElementById('generate-video-btn');
 const progressContainer = document.getElementById('progress-container');
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
+
+// 批量添加相关元素
+const batchAddBtn = document.getElementById('batch-add-btn');
+const batchAddModal = document.getElementById('batch-add-modal');
+const modalClose = document.getElementById('modal-close');
+const modalCancel = document.getElementById('modal-cancel');
+const modalConfirm = document.getElementById('modal-confirm');
+const batchAddTextarea = document.getElementById('batch-add-textarea');
 
 const sticker = document.querySelector('.sticker');
 const stickerWidth = document.getElementById('sticker-width');
@@ -168,6 +177,7 @@ fileInput.addEventListener('change', function(e) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(event) {
+            // 直接加载用户上传的图片，保留原始背景
             imageContainer.src = event.target.result;
             imageContainer.style.display = 'block';
             uploadOverlay.style.display = 'none';
@@ -206,31 +216,20 @@ downloadBtn.addEventListener('click', function() {
     const batchContainer = document.getElementById('batch-container');
     const container = batchContainer.style.display === 'block' ? batchContainer : singleContainer;
     
+    showNotification('正在添加图片...', 1000);
+    
+    // 使用html2canvas截取，确保样式完全一致
     html2canvas(container, {
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: null,
         scale: 2,
-        logging: false
+        logging: false,
+        imageTimeout: 0,
+        removeContainer: false,
+        useFragment: false
     }).then(function(canvas) {
-        const targetWidth = 1080;
-        const targetHeight = 1920;
-        
-        const outputCanvas = document.createElement('canvas');
-        outputCanvas.width = targetWidth;
-        outputCanvas.height = targetHeight;
-        const outputCtx = outputCanvas.getContext('2d');
-        
-        outputCtx.fillStyle = '#ffffff';
-        outputCtx.fillRect(0, 0, targetWidth, targetHeight);
-        
-        const scale = Math.min(targetWidth / canvas.width, targetHeight / canvas.height);
-        const x = (targetWidth - canvas.width * scale) / 2;
-        const y = (targetHeight - canvas.height * scale) / 2;
-        
-        outputCtx.drawImage(canvas, x, y, canvas.width * scale, canvas.height * scale);
-        
-        const imageData = outputCanvas.toDataURL('image/png');
+        const imageData = canvas.toDataURL('image/png');
         
         batchImages.push({
             name: 'screenshot_' + Date.now() + '.png',
@@ -244,6 +243,7 @@ downloadBtn.addEventListener('click', function() {
         showNotification('图片添加成功！', 1000);
     }).catch(function(error) {
         console.error('截图失败:', error);
+        showNotification('截图失败，请重试', 2000);
     });
 });
 
@@ -451,7 +451,10 @@ function handleDrop(e) {
     }
 }
 
-updateBatchImagesContainer();
+// 确保在 DOM 完全加载后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    updateBatchImagesContainer();
+});
 
 function updateProgress(current, total) {
     const percentage = Math.round((current / total) * 100);
@@ -505,13 +508,34 @@ async function generateVideo() {
         progressContainer.style.display = 'none';
         updateProgress(0, 100);
         
-        showNotification('视频生成成功！', 1000);
+        // 创建保存按钮，让用户主动点击来保存视频（符合浏览器安全策略）
+        showSaveVideoButton(blob, videoFileName);
+    };
+    
+    // 显示保存视频按钮
+    function showSaveVideoButton(blob, fileName) {
+        showNotification('视频生成成功！', 1500);
         
-        setTimeout(async () => {
+        // 检查是否已有保存按钮
+        let saveBtn = document.getElementById('save-video-btn');
+        if (!saveBtn) {
+            saveBtn = document.createElement('button');
+            saveBtn.id = 'save-video-btn';
+            saveBtn.className = 'btn btn-primary';
+            saveBtn.style.marginTop = '10px';
+            saveBtn.textContent = '保存视频';
+            document.querySelector('.batch-actions').appendChild(saveBtn);
+        }
+        
+        saveBtn.style.display = 'block';
+        saveBtn.onclick = async () => {
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+            
             if ('showSaveFilePicker' in window) {
                 try {
                     const handle = await window.showSaveFilePicker({
-                        suggestedName: videoFileName,
+                        suggestedName: fileName,
                         types: [
                             {
                                 description: 'MP4视频',
@@ -529,15 +553,21 @@ async function generateVideo() {
                     await writable.close();
                     
                     showNotification('视频保存成功！', 2000);
+                    saveBtn.style.display = 'none';
                 } catch (err) {
                     console.error('保存失败或用户取消:', err);
-                    downloadVideoFallback(blob, videoFileName);
+                    downloadVideoFallback(blob, fileName);
+                    saveBtn.style.display = 'none';
                 }
             } else {
-                downloadVideoFallback(blob, videoFileName);
+                downloadVideoFallback(blob, fileName);
+                saveBtn.style.display = 'none';
             }
-        }, 1000);
-    };
+            
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存视频';
+        };
+    }
 
     function downloadVideoFallback(blob, fileName) {
         const url = URL.createObjectURL(blob);
@@ -563,27 +593,8 @@ async function generateVideo() {
 
         const imageFrames = imageDuration / (1000 / fps);
         for (let j = 0; j < imageFrames; j++) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-            
-            const imgRatio = currentImg.width / currentImg.height;
-            const containerRatio = width / height;
-            
-            let drawWidth, drawHeight, drawX, drawY;
-            
-            if (imgRatio > containerRatio) {
-                drawWidth = width;
-                drawHeight = width / imgRatio;
-                drawX = 0;
-                drawY = (height - drawHeight) / 2;
-            } else {
-                drawHeight = height;
-                drawWidth = height * imgRatio;
-                drawX = (width - drawWidth) / 2;
-                drawY = 0;
-            }
-            
-            ctx.drawImage(currentImg, drawX, drawY, drawWidth, drawHeight);
+            // 直接绘制整个截图（包括留白），不进行缩放
+            ctx.drawImage(currentImg, 0, 0, width, height);
             await new Promise(r => setTimeout(r, frameDuration));
             currentFrame++;
             updateProgress(currentFrame, totalFrames);
@@ -673,47 +684,34 @@ function getImageDrawParams(img, width, height) {
 }
 
 function drawSlideLeft(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
-    ctx.drawImage(currentImg, currentParams.drawX + width * progress, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
-    ctx.drawImage(nextImg, nextParams.drawX + width * (progress - 1), nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(currentImg, width * progress, 0, width, height);
+    ctx.drawImage(nextImg, width * (progress - 1), 0, width, height);
 }
 
 function drawSlideRight(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
-    ctx.drawImage(currentImg, currentParams.drawX - width * progress, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
-    ctx.drawImage(nextImg, nextParams.drawX + width * (1 - progress), nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(currentImg, -width * progress, 0, width, height);
+    ctx.drawImage(nextImg, width * (1 - progress), 0, width, height);
 }
 
 function drawSlideUp(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
-    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY + height * progress, currentParams.drawWidth, currentParams.drawHeight);
-    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY + height * (progress - 1), nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(currentImg, 0, height * progress, width, height);
+    ctx.drawImage(nextImg, 0, height * (progress - 1), width, height);
 }
 
 function drawSlideDown(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
-    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY - height * progress, currentParams.drawWidth, currentParams.drawHeight);
-    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY + height * (1 - progress), nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(currentImg, 0, -height * progress, width, height);
+    ctx.drawImage(nextImg, 0, height * (1 - progress), width, height);
 }
 
 function drawFade(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
-    
     ctx.globalAlpha = 1 - progress;
-    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(currentImg, 0, 0, width, height);
     ctx.globalAlpha = progress;
-    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(nextImg, 0, 0, width, height);
     ctx.globalAlpha = 1;
 }
 
 function drawFlip(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
     const centerX = width / 2;
     const centerY = height / 2;
     const rotation = progress * Math.PI;
@@ -725,22 +723,20 @@ function drawFlip(ctx, currentImg, nextImg, width, height, progress) {
     ctx.rotate(rotation);
     ctx.globalAlpha = Math.cos(rotation);
     ctx.translate(-centerX, -centerY);
-    ctx.drawImage(currentImg, currentParams.drawX, currentParams.drawY, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(currentImg, 0, 0, width, height);
     ctx.restore();
     
     ctx.save();
     ctx.rotate(rotation - Math.PI);
     ctx.globalAlpha = Math.abs(Math.cos(rotation - Math.PI));
     ctx.translate(-centerX, -centerY);
-    ctx.drawImage(nextImg, nextParams.drawX, nextParams.drawY, nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(nextImg, 0, 0, width, height);
     ctx.restore();
     
     ctx.restore();
 }
 
 function drawZoom(ctx, currentImg, nextImg, width, height, progress) {
-    const currentParams = getImageDrawParams(currentImg, width, height);
-    const nextParams = getImageDrawParams(nextImg, width, height);
     const zoomOut = 1 + progress * 0.3;
     const zoomIn = 1 - progress * 0.3;
     
@@ -748,15 +744,197 @@ function drawZoom(ctx, currentImg, nextImg, width, height, progress) {
     ctx.globalAlpha = 1 - progress;
     ctx.translate(width / 2, height / 2);
     ctx.scale(zoomOut, zoomOut);
-    ctx.drawImage(currentImg, currentParams.drawX - width / 2, currentParams.drawY - height / 2, currentParams.drawWidth, currentParams.drawHeight);
+    ctx.drawImage(currentImg, -width / 2, -height / 2, width, height);
     ctx.restore();
     
     ctx.save();
     ctx.globalAlpha = progress;
     ctx.translate(width / 2, height / 2);
     ctx.scale(zoomIn, zoomIn);
-    ctx.drawImage(nextImg, nextParams.drawX - width / 2, nextParams.drawY - height / 2, nextParams.drawWidth, nextParams.drawHeight);
+    ctx.drawImage(nextImg, -width / 2, -height / 2, width, height);
     ctx.restore();
 }
 
 generateVideoBtn.addEventListener('click', generateVideo);
+
+// 批量添加按钮事件
+batchAddBtn.addEventListener('click', function() {
+    batchAddModal.style.display = 'flex';
+    batchAddTextarea.value = '';
+});
+
+// 关闭弹窗
+function closeModal() {
+    batchAddModal.style.display = 'none';
+    batchAddTextarea.value = '';
+}
+
+modalClose.addEventListener('click', closeModal);
+modalCancel.addEventListener('click', closeModal);
+
+// 点击弹窗外部关闭
+batchAddModal.addEventListener('click', function(e) {
+    if (e.target === batchAddModal) {
+        closeModal();
+    }
+});
+
+// 确定添加
+modalConfirm.addEventListener('click', async function() {
+    const text = batchAddTextarea.value.trim();
+    if (!text) {
+        showNotification('请输入文案内容');
+        return;
+    }
+
+    // 解析文案格式：【内容】（支持多行）
+    const textContent = batchAddTextarea.value;
+    
+    // 使用【】分割内容
+    const parts = textContent.split('【');
+    const items = [];
+    
+    for (let i = 1; i < parts.length; i++) {
+        let content = parts[i];
+        
+        // 找到结束位置
+        const endIndex = content.indexOf('】');
+        if (endIndex !== -1) {
+            content = content.substring(0, endIndex);
+        }
+        
+        // 清理内容：去除多余空行
+        content = content
+            .split('\n')
+            .map(line => line.trim())
+            .filter((line, index, arr) => {
+                // 保留所有非空行
+                return line !== '';
+            })
+            .join('\n');
+        
+        if (content.trim()) {
+            items.push({
+                index: i,
+                content: content.trim()
+            });
+        }
+    }
+
+    if (items.length === 0) {
+        showNotification('请按照【】格式输入内容');
+        return;
+    }
+
+    // 按序号排序
+    items.sort((a, b) => a.index - b.index);
+
+    closeModal();
+    
+    // 确保显示单张预览页面用于截图
+    if (batchContainer.style.display === 'block') {
+        batchContainer.style.display = 'none';
+        singleContainer.style.display = 'block';
+    }
+    
+    // 检查是否已经上传了封面图片
+    if (!imageContainer.src.startsWith('data:')) {
+        showNotification('请先上传封面图片！', 3000);
+        return;
+    }
+    
+    showNotification('开始批量添加...');
+
+    // 依次添加每张图片
+    for (const item of items) {
+        // 1. 更新文案输入框
+        stickerMiddleInput.value = item.content;
+        
+        // 2. 点击确定按钮更新预览
+        confirmMiddleBtn.click();
+        
+        // 3. 等待 DOM 更新
+        await new Promise(r => setTimeout(r, 100));
+        
+        // 4. 生成截图并添加到列表
+        await new Promise((resolve) => {
+            const container = singleContainer; // 始终使用单张预览页面
+            
+            if (!container) {
+                console.error('容器不存在');
+                showNotification('容器不存在', 2000);
+                resolve();
+                return;
+            }
+            
+            console.log('正在截图第', item.index, '张图片');
+            
+            // 截图前保存原始状态
+            const originalSrc = imageContainer.src;
+            const originalBackground = imageContainer.style.backgroundImage;
+            
+            // 如果图片不是 data URL，先隐藏图片
+            if (!imageContainer.src.startsWith('data:')) {
+                imageContainer.style.display = 'none';
+            }
+            imageContainer.style.backgroundImage = 'none';
+            
+            html2canvas(container, {
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                scale: 2,
+                logging: true,
+                timeout: 10000
+            }).then(function(canvas) {
+                // 恢复原始状态
+                imageContainer.src = originalSrc;
+                imageContainer.style.display = 'block';
+                imageContainer.style.backgroundImage = originalBackground;
+                if (!canvas) {
+                    console.error('canvas 为空');
+                    showNotification('截图失败', 2000);
+                    resolve();
+                    return;
+                }
+                
+                console.log('截图成功，尺寸:', canvas.width, 'x', canvas.height);
+                
+                // 保持原始截图尺寸，不进行缩放
+                const outputCanvas = document.createElement('canvas');
+                outputCanvas.width = canvas.width;
+                outputCanvas.height = canvas.height;
+                const outputCtx = outputCanvas.getContext('2d');
+                
+                outputCtx.fillStyle = '#ffffff';
+                outputCtx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 直接绘制，不缩放
+                outputCtx.drawImage(canvas, 0, 0);
+                
+                const imageData = outputCanvas.toDataURL('image/png');
+                
+                batchImages.push({
+                    name: 'image_' + item.index + '_' + Date.now() + '.png',
+                    data: imageData
+                });
+                
+                console.log('已添加到列表，当前列表长度:', batchImages.length);
+                
+                // 每次添加后都更新图片列表
+                updateBatchImagesContainer();
+                
+                resolve();
+            }).catch(function(error) {
+                console.error('截图失败:', error);
+                showNotification('第' + item.index + '张图片添加失败: ' + error.message, 2000);
+                resolve();
+            });
+        });
+        
+        // 等待一下，确保 DOM 更新完成
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    showNotification(`已成功添加 ${items.length} 张图片！`);
+});

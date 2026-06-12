@@ -11,6 +11,7 @@
     <div class="controls">
         <input type="file" id="file-input" accept="image/*">
         <button class="btn btn-primary" id="upload-btn">设置封面</button>
+        <button class="btn btn-secondary" id="batch-add-btn">批量添加</button>
         <textarea class="text-input" id="sticker-middle" placeholder="在这里输入文案
 按enter可以换行
 下方贴纸尺寸设置可以更改样式"></textarea>
@@ -88,7 +89,8 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
     </div>
     
     <div class="container" id="single-container">
-        <img id="image-container" src="qq.png" alt="预览图片">
+        <img id="bg-image" class="bg-image-layer" src="底色.jpg" alt="背景底色">
+        <img id="image-container" class="image-container-layer" src="" alt="预览图片">
         <div class="sticker">
             <div class="sticker-part sticker-middle">在这里输入文案
 按enter可以换行
@@ -131,6 +133,26 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
                 <div class="progress-text" id="progress-text">0%</div>
             </div>
             <div class="batch-images" id="batch-images-container"></div>
+        </div>
+    </div>
+
+    <!-- 批量添加弹窗 -->
+    <div class="modal-overlay" id="batch-add-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>批量添加图片</h3>
+                <span class="modal-close" id="modal-close">×</span>
+            </div>
+            <div class="modal-body">
+                <textarea class="modal-textarea" id="batch-add-textarea" placeholder="请输入文案，用【】包裹每张图片的内容"></textarea>
+                <div class="modal-hint">
+                    💡 提示：用【】包裹每张图片的文案内容，支持多行
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modal-cancel">取消</button>
+                <button class="btn btn-primary" id="modal-confirm">确定添加</button>
+            </div>
         </div>
     </div>
 
