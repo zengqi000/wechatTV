@@ -109,30 +109,31 @@ B：茅盾文学奖获奖作品！总有一句话能让你瞬间醒悟</textarea
     
     <div class="container" id="batch-container" style="display: none;">
         <div class="batch-content">
-            <div class="batch-header">
-                <h3>图片管理</h3>
-                <div class="batch-actions">
-                    <button class="btn btn-secondary" id="back-to-single">← 返回</button>
-                    <button class="btn btn-primary" id="add-image-btn">添加图片</button>
-                    <select id="transition-style" class="transition-select">
-                        <option value="slide-left">滑动左移</option>
-                        <option value="slide-right">滑动右移</option>
-                        <option value="slide-up">滑动上移</option>
-                        <option value="slide-down">滑动下移</option>
-                        <option value="fade">淡入淡出</option>
-                        <option value="flip">翻页效果</option>
-                        <option value="zoom">缩放效果</option>
-                    </select>
-                    <button class="btn btn-primary" id="generate-video-btn">生成视频</button>
+            <div class="batch-main">
+                <div class="batch-header">
+                    <h3>图片管理</h3>
+                    <div class="batch-actions">
+                        <button class="btn btn-secondary" id="back-to-single">← 返回</button>
+                        <button class="btn btn-primary" id="add-image-btn">添加图片</button>
+                        <select id="transition-style" class="transition-select">
+                            <option value="slide-left">滑动左移</option>
+                            <option value="slide-right">滑动右移</option>
+                            <option value="slide-up">滑动上移</option>
+                            <option value="slide-down">滑动下移</option>
+                            <option value="fade">淡入淡出</option>
+                            <option value="flip">翻页效果</option>
+                            <option value="zoom">缩放效果</option>
+                        </select>
+                        <button class="btn btn-primary" id="generate-video-btn">生成视频</button>
+                    </div>
                 </div>
-            </div>
-            <div class="progress-container" id="progress-container" style="display: none;">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
+                <div class="progress-container" id="progress-container" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">0%</div>
                 </div>
-                <div class="progress-text" id="progress-text">0%</div>
-            </div>
-            <div class="batch-images" id="batch-images-container"></div>
+                <div class="batch-images" id="batch-images-container"></div>
             </div>
             <div class="batch-log-container">
                 <div class="log-header" id="log-header">
