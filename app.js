@@ -218,18 +218,142 @@ downloadBtn.addEventListener('click', function() {
     
     showNotification('正在添加图片...', 1000);
     
-    // 使用html2canvas截取，确保样式完全一致
-    html2canvas(container, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        scale: 2,
-        logging: false,
-        imageTimeout: 0,
-        removeContainer: false,
-        useFragment: false
-    }).then(function(canvas) {
-        const imageData = canvas.toDataURL('image/png');
+    // 使用Canvas直接绘制，确保样式在任何环境下都一致
+    const rect = container.getBoundingClientRect();
+    const scale = 2;
+    const outputCanvas = document.createElement('canvas');
+    outputCanvas.width = rect.width * scale;
+    outputCanvas.height = rect.height * scale;
+    const ctx = outputCanvas.getContext('2d');
+    
+    // 1. 绘制底色图
+    const bgImg = document.getElementById('bg-image');
+    if (bgImg && bgImg.src && bgImg.src !== '' && bgImg.src !== 'about:blank') {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            ctx.drawImage(img, 0, 0, outputCanvas.width, outputCanvas.height);
+            drawContent();
+        };
+        img.onerror = function() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+            drawContent();
+        };
+        img.src = bgImg.src;
+    } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+        drawContent();
+    }
+    
+    function drawContent() {
+        // 2. 绘制封面图（如果有）
+        if (imageContainer && imageContainer.src && imageContainer.src !== '' && imageContainer.src !== 'about:blank') {
+            const coverImg = new Image();
+            coverImg.crossOrigin = 'anonymous';
+            coverImg.onload = function() {
+                const imgRatio = coverImg.width / coverImg.height;
+                const canvasRatio = outputCanvas.width / outputCanvas.height;
+                let drawWidth, drawHeight, drawX, drawY;
+                
+                if (imgRatio > canvasRatio) {
+                    drawHeight = outputCanvas.height;
+                    drawWidth = drawHeight * imgRatio;
+                    drawX = (outputCanvas.width - drawWidth) / 2;
+                    drawY = 0;
+                } else {
+                    drawWidth = outputCanvas.width;
+                    drawHeight = drawWidth / imgRatio;
+                    drawX = 0;
+                    drawY = (outputCanvas.height - drawHeight) / 2;
+                }
+                ctx.drawImage(coverImg, drawX, drawY, drawWidth, drawHeight);
+                drawSticker();
+            };
+            coverImg.onerror = function() {
+                drawSticker();
+            };
+            coverImg.src = imageContainer.src;
+        } else {
+            drawSticker();
+        }
+    }
+    
+    function drawSticker() {
+        // 3. 绘制贴纸
+        const sticker = document.querySelector('.sticker');
+        if (sticker) {
+            const stickerRect = sticker.getBoundingClientRect();
+            const x = (stickerRect.left - rect.left) * scale;
+            const y = (stickerRect.top - rect.top) * scale;
+            const width = stickerRect.width * scale;
+            const height = stickerRect.height * scale;
+            
+            // 绘制贴纸背景
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fillRect(x, y, width, height);
+            
+            // 绘制中间文字
+            const middleText = sticker.querySelector('.sticker-middle');
+            if (middleText) {
+                ctx.fillStyle = '#333';
+                ctx.font = `bold ${16 * scale}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                
+                const text = middleText.textContent.trim();
+                const lines = text.split('\n');
+                let textY = y + 25 * scale;
+                lines.forEach(line => {
+                    ctx.fillText(line, x + width / 2, textY);
+                    textY += 24 * scale;
+                });
+            }
+            
+            // 绘制底部文字
+            const stickerBottom = sticker.querySelector('.sticker-bottom');
+            if (stickerBottom) {
+                const bottomMain = stickerBottom.querySelector('.sticker-bottom-main');
+                const bottomSecondary = stickerBottom.querySelector('.sticker-bottom-secondary');
+                
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                
+                let currentY = y + height - 90 * scale;
+                
+                if (bottomMain) {
+                    // 绘制红色背景
+                    const paddingX = 12 * scale;
+                    const paddingY = 6 * scale;
+                    ctx.font = `bold ${20 * scale}px sans-serif`;
+                    const textWidth = ctx.measureText(bottomMain.textContent).width;
+                    const bgWidth = textWidth + paddingX * 2;
+                    const bgHeight = 32 * scale + paddingY * 2;
+                    const bgX = x + width - bgWidth - 15 * scale;
+                    const bgY = currentY;
+                    
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.beginPath();
+                    ctx.roundRect(bgX, bgY, bgWidth, bgHeight, 6 * scale);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(bottomMain.textContent, x + width - 15 * scale - paddingX, bgY + paddingY + 8 * scale);
+                    
+                    currentY += bgHeight + 6 * scale;
+                }
+                
+                if (bottomSecondary) {
+                    ctx.font = `${14 * scale}px sans-serif`;
+                    ctx.fillStyle = '#666';
+                    ctx.fillText(bottomSecondary.textContent, x + width - 15 * scale, currentY);
+                }
+            }
+        }
+        
+        // 保存截图
+        const imageData = outputCanvas.toDataURL('image/png');
         
         batchImages.push({
             name: 'screenshot_' + Date.now() + '.png',
@@ -241,10 +365,7 @@ downloadBtn.addEventListener('click', function() {
         }
         
         showNotification('图片添加成功！', 1000);
-    }).catch(function(error) {
-        console.error('截图失败:', error);
-        showNotification('截图失败，请重试', 2000);
-    });
+    }
 });
 
 const tutorialBtn = document.getElementById('tutorial-btn');
