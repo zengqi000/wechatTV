@@ -575,6 +575,22 @@ function handleDrop(e) {
 // 确保在 DOM 完全加载后初始化
 document.addEventListener('DOMContentLoaded', function() {
     updateBatchImagesContainer();
+    
+    // 日志区域展开/收起功能
+    const logHeader = document.getElementById('log-header');
+    const logContent = document.getElementById('log-content');
+    const logToggle = document.getElementById('log-toggle');
+    
+    if (logHeader && logContent && logToggle) {
+        // 默认收起
+        logContent.classList.add('collapsed');
+        logToggle.textContent = '▼';
+        
+        logHeader.addEventListener('click', function() {
+            logContent.classList.toggle('collapsed');
+            logToggle.textContent = logContent.classList.contains('collapsed') ? '▼' : '▲';
+        });
+    }
 });
 
 function updateProgress(current, total) {
