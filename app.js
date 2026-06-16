@@ -212,59 +212,43 @@ confirmBottomBtn.addEventListener('click', function() {
 });
 
 downloadBtn.addEventListener('click', function() {
-    const singleContainer = document.getElementById('single-container');
-    const batchContainer = document.getElementById('batch-container');
-    const container = batchContainer.style.display === 'block' ? batchContainer : singleContainer;
+    // 1. 直接获取你要截取的指定图片元素
+    const imgContainer = document.getElementById('image-container');
+    
+    // 安全检查：确保页面上确实存在这个图片元素
+    if (!imgContainer) {
+        showNotification('未找到目标图片区域', 2000);
+        return;
+    }
     
     showNotification('正在添加图片...', 1000);
     
-    // 使用html2canvas截取整个容器，确保所有内容（包括底色）都被捕获
-    html2canvas(container, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        scale: 2,
+    // 2. 将目标传入 html2canvas
+    html2canvas(imgContainer, {
+        useCORS: true,           // 极其重要：如果是网络图片，必须开启跨域
+        allowTaint: false,       // 注意：当 useCORS 为 true 时，allowTaint 最好设为 false，否则部分浏览器会报安全性错误导致无法导出
+        backgroundColor: null,   // 保持透明背景
+        scale: 2,                // 保持双倍清晰度
         logging: false,
         imageTimeout: 0,
-        removeContainer: false,
-        useFragment: false,
         scrollX: 0,
         scrollY: 0,
         windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        ignoreElements: function(element) {
-            return element.classList.contains('upload-overlay');
-        }
+        windowHeight: window.innerHeight
     }).then(function(canvas) {
-        // 确保画布尺寸是9:16比例
-        const targetWidth = canvas.width;
-        const targetHeight = Math.round(targetWidth * 16 / 9);
         
-        // 如果高度不够，创建新画布填充
-        if (canvas.height < targetHeight) {
-            const newCanvas = document.createElement('canvas');
-            newCanvas.width = targetWidth;
-            newCanvas.height = targetHeight;
-            const ctx = newCanvas.getContext('2d');
-            
-            // 填充白色背景
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, targetWidth, targetHeight);
-            
-            // 将原画布居中绘制
-            const offsetY = (targetHeight - canvas.height) / 2;
-            ctx.drawImage(canvas, 0, offsetY);
-            canvas = newCanvas;
-        }
-        
+        // 3. 此时直接导出即可，不需要再强行填充 9:16 的白边（除非你做壁纸需要留白）
         const imageData = canvas.toDataURL('image/png');
         
+        // 保存到批量数组
         batchImages.push({
             name: 'screenshot_' + Date.now() + '.png',
             data: imageData
         });
         
-        if (batchContainer.style.display === 'block') {
+        // 如果批量容器在显示，更新它
+        const batchContainer = document.getElementById('batch-container');
+        if (batchContainer && batchContainer.style.display === 'block') {
             updateBatchImagesContainer();
         }
         
@@ -274,6 +258,9 @@ downloadBtn.addEventListener('click', function() {
         showNotification('截图失败，请重试', 2000);
     });
 });
+
+
+
 
 const tutorialBtn = document.getElementById('tutorial-btn');
 tutorialBtn.addEventListener('click', function() {
