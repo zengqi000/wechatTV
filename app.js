@@ -227,8 +227,36 @@ downloadBtn.addEventListener('click', function() {
         logging: false,
         imageTimeout: 0,
         removeContainer: false,
-        useFragment: false
+        useFragment: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+        ignoreElements: function(element) {
+            return element.classList.contains('upload-overlay');
+        }
     }).then(function(canvas) {
+        // 确保画布尺寸是9:16比例
+        const targetWidth = canvas.width;
+        const targetHeight = Math.round(targetWidth * 16 / 9);
+        
+        // 如果高度不够，创建新画布填充
+        if (canvas.height < targetHeight) {
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = targetWidth;
+            newCanvas.height = targetHeight;
+            const ctx = newCanvas.getContext('2d');
+            
+            // 填充白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+            
+            // 将原画布居中绘制
+            const offsetY = (targetHeight - canvas.height) / 2;
+            ctx.drawImage(canvas, 0, offsetY);
+            canvas = newCanvas;
+        }
+        
         const imageData = canvas.toDataURL('image/png');
         
         batchImages.push({
