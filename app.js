@@ -28,10 +28,29 @@ function showNotification(message, duration = 2000) {
 
 const fileInput = document.getElementById('file-input');
 const batchFileInput = document.getElementById('batch-file-input');
+
 const imageContainer = document.getElementById('image-container');
 const bgImage = document.getElementById('bg-image');
 const uploadOverlay = document.getElementById('upload-overlay');
 const uploadBtn = document.getElementById('upload-btn');
+
+// 确保底色图正确加载
+if (bgImage) {
+    // 使用相对于文档的路径
+    const currentPath = window.location.pathname;
+    const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    bgImage.src = basePath + '底色.jpg';
+    
+    bgImage.addEventListener('error', function() {
+        console.error('底色图加载失败，路径:', this.src);
+        this.style.display = 'none';
+    });
+    
+    bgImage.addEventListener('load', function() {
+        console.log('底色图加载成功');
+        this.style.display = 'block';
+    });
+}
 const batchUploadBtn = document.getElementById('batch-upload-btn');
 const stickerMiddleInput = document.getElementById('sticker-middle');
 const stickerBottomInput = document.getElementById('sticker-bottom');
@@ -211,7 +230,7 @@ confirmBottomBtn.addEventListener('click', function() {
     }
 });
 
-downloadBtn.addEventListener('click', function() {
+downloadBtn.addEventListener('click', async function() {
     const singleContainer = document.getElementById('single-container');
     const batchContainer = document.getElementById('batch-container');
     
@@ -220,22 +239,87 @@ downloadBtn.addEventListener('click', function() {
     
     showNotification('正在添加图片...', 1000);
     
-    // 使用html2canvas截取整个容器
-    html2canvas(container, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        scale: 2,
-        logging: false,
-        imageTimeout: 0,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        ignoreElements: function(element) {
-            return element.classList.contains('upload-overlay');
+    try {
+        // 确保容器有底色背景（强制设置深绿色渐变）
+        container.style.background = 'linear-gradient(180deg, #0d4f4f 0%, #1a5f5f 50%, #0d4f4f 100%)';
+        
+        // 确保底色图已加载
+        const bgImage = document.getElementById('bg-image');
+        if (bgImage) {
+            if (!bgImage.src || bgImage.src === '') {
+                const currentPath = window.location.pathname;
+                const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+                bgImage.src = basePath + '底色.jpg';
+            }
+            
+            // 强制等待底色图加载
+            await new Promise((resolve) => {
+                if (bgImage.complete && bgImage.naturalHeight > 0) {
+                    resolve();
+                } else {
+                    bgImage.onload = resolve;
+                    bgImage.onerror = resolve;
+                }
+            });
+            
+            // 确保底色图可见
+            bgImage.style.display = 'block';
         }
-    }).then(function(canvas) {
+        
+        // 等待所有图片加载完成
+        const images = container.querySelectorAll('img');
+        const loadPromises = [];
+        
+        for (const img of images) {
+            if (img.src && !img.src.startsWith('data:') && img.src !== window.location.href) {
+                try {
+                    const response = await fetch(img.src);
+                    const blob = await response.blob();
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    img.src = dataUrl;
+                } catch (e) {
+                    console.warn('无法转换图片:', img.src, e);
+                }
+            }
+            
+            // 创建图片加载完成的Promise
+            if (img.src) {
+                loadPromises.push(new Promise((resolve) => {
+                    if (img.complete) {
+                        resolve();
+                    } else {
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    }
+                }));
+            }
+        }
+        
+        // 等待所有图片加载完成
+        await Promise.all(loadPromises);
+        
+        // 使用html2canvas截取整个容器
+        const canvas = await html2canvas(container, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: null,  // 使用容器的背景色
+            scale: 2,
+            logging: false,
+            imageTimeout: 10000,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: window.innerWidth,
+            windowHeight: window.innerHeight,
+            ignoreElements: function(element) {
+                return element.classList.contains('upload-overlay');
+            }
+        });
+        
         const imageData = canvas.toDataURL('image/png');
         
         batchImages.push({
@@ -248,10 +332,10 @@ downloadBtn.addEventListener('click', function() {
         }
         
         showNotification('图片添加成功！', 1000);
-    }).catch(function(error) {
+    } catch (error) {
         console.error('截图失败:', error);
         showNotification('截图失败，请重试', 2000);
-    });
+    }
 });
 
 
