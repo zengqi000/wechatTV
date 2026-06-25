@@ -1,5 +1,6 @@
 function showNotification(message, duration = 2000) {
     const notification = document.createElement('div');
+    notification.className = 'app-notification';
     notification.style.cssText = `
         position: fixed;
         top: 50%;
@@ -232,93 +233,26 @@ confirmBottomBtn.addEventListener('click', function() {
 
 downloadBtn.addEventListener('click', async function() {
     const singleContainer = document.getElementById('single-container');
-    const batchContainer = document.getElementById('batch-container');
     
-    // 截取整个容器（包含底色图、贴纸文案和封面）
-    const container = singleContainer;
+    if (!singleContainer) {
+        console.error('容器不存在');
+        showNotification('容器不存在', 2000);
+        return;
+    }
     
-    showNotification('正在添加图片...', 1000);
-    
-    try {
-        // 确保容器有底色背景（强制设置深绿色渐变）
-        container.style.background = 'linear-gradient(180deg, #0d4f4f 0%, #1a5f5f 50%, #0d4f4f 100%)';
-        
-        // 确保底色图已加载
-        const bgImage = document.getElementById('bg-image');
-        if (bgImage) {
-            if (!bgImage.src || bgImage.src === '') {
-                const currentPath = window.location.pathname;
-                const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
-                bgImage.src = basePath + '底色.jpg';
-            }
-            
-            // 强制等待底色图加载
-            await new Promise((resolve) => {
-                if (bgImage.complete && bgImage.naturalHeight > 0) {
-                    resolve();
-                } else {
-                    bgImage.onload = resolve;
-                    bgImage.onerror = resolve;
-                }
-            });
-            
-            // 确保底色图可见
-            bgImage.style.display = 'block';
+    html2canvas(singleContainer, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        scale: 2,
+        logging: true,
+        timeout: 10000
+    }).then(function(canvas) {
+        if (!canvas) {
+            console.error('canvas 为空');
+            showNotification('截图失败', 2000);
+            return;
         }
-        
-        // 等待所有图片加载完成
-        const images = container.querySelectorAll('img');
-        const loadPromises = [];
-        
-        for (const img of images) {
-            if (img.src && !img.src.startsWith('data:') && img.src !== window.location.href) {
-                try {
-                    const response = await fetch(img.src);
-                    const blob = await response.blob();
-                    const dataUrl = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                    img.src = dataUrl;
-                } catch (e) {
-                    console.warn('无法转换图片:', img.src, e);
-                }
-            }
-            
-            // 创建图片加载完成的Promise
-            if (img.src) {
-                loadPromises.push(new Promise((resolve) => {
-                    if (img.complete) {
-                        resolve();
-                    } else {
-                        img.onload = resolve;
-                        img.onerror = resolve;
-                    }
-                }));
-            }
-        }
-        
-        // 等待所有图片加载完成
-        await Promise.all(loadPromises);
-        
-        // 使用html2canvas截取整个容器
-        const canvas = await html2canvas(container, {
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: null,  // 使用容器的背景色
-            scale: 2,
-            logging: false,
-            imageTimeout: 10000,
-            scrollX: 0,
-            scrollY: 0,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight,
-            ignoreElements: function(element) {
-                return element.classList.contains('upload-overlay');
-            }
-        });
         
         const imageData = canvas.toDataURL('image/png');
         
@@ -327,15 +261,13 @@ downloadBtn.addEventListener('click', async function() {
             data: imageData
         });
         
-        if (batchContainer.style.display === 'block') {
-            updateBatchImagesContainer();
-        }
+        updateBatchImagesContainer();
         
         showNotification('图片添加成功！', 1000);
-    } catch (error) {
+    }).catch(function(error) {
         console.error('截图失败:', error);
-        showNotification('截图失败，请重试', 2000);
-    }
+        showNotification('截图失败: ' + error.message, 2000);
+    });
 });
 
 
@@ -950,7 +882,7 @@ modalConfirm.addEventListener('click', async function() {
         // 3. 等待 DOM 更新
         await new Promise(r => setTimeout(r, 100));
         
-        // 4. 生成截图并添加到列表
+        // 4. 使用 html2canvas 生成截图并添加到列表
         await new Promise((resolve) => {
             const container = singleContainer; // 始终使用单张预览页面
             
@@ -961,30 +893,14 @@ modalConfirm.addEventListener('click', async function() {
                 return;
             }
             
-            console.log('正在截图第', item.index, '张图片');
-            
-            // 截图前保存原始状态
-            const originalSrc = imageContainer.src;
-            const originalBackground = imageContainer.style.backgroundImage;
-            
-            // 如果图片不是 data URL，先隐藏图片
-            if (!imageContainer.src.startsWith('data:')) {
-                imageContainer.style.display = 'none';
-            }
-            imageContainer.style.backgroundImage = 'none';
-            
             html2canvas(container, {
                 useCORS: true,
                 allowTaint: true,
-                backgroundColor: '#ffffff',
+                backgroundColor: null,
                 scale: 2,
                 logging: true,
                 timeout: 10000
             }).then(function(canvas) {
-                // 恢复原始状态
-                imageContainer.src = originalSrc;
-                imageContainer.style.display = 'block';
-                imageContainer.style.backgroundImage = originalBackground;
                 if (!canvas) {
                     console.error('canvas 为空');
                     showNotification('截图失败', 2000);
@@ -992,30 +908,13 @@ modalConfirm.addEventListener('click', async function() {
                     return;
                 }
                 
-                console.log('截图成功，尺寸:', canvas.width, 'x', canvas.height);
-                
-                // 保持原始截图尺寸，不进行缩放
-                const outputCanvas = document.createElement('canvas');
-                outputCanvas.width = canvas.width;
-                outputCanvas.height = canvas.height;
-                const outputCtx = outputCanvas.getContext('2d');
-                
-                outputCtx.fillStyle = '#ffffff';
-                outputCtx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // 直接绘制，不缩放
-                outputCtx.drawImage(canvas, 0, 0);
-                
-                const imageData = outputCanvas.toDataURL('image/png');
+                const imageData = canvas.toDataURL('image/png');
                 
                 batchImages.push({
-                    name: 'image_' + item.index + '_' + Date.now() + '.png',
+                    name: 'image_' + Date.now() + '.png',
                     data: imageData
                 });
                 
-                console.log('已添加到列表，当前列表长度:', batchImages.length);
-                
-                // 每次添加后都更新图片列表
                 updateBatchImagesContainer();
                 
                 resolve();

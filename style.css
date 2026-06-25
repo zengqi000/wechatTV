@@ -469,7 +469,6 @@ body {
 
 .batch-image-item {
     width: calc(50% - 6px);
-    aspect-ratio: 9 / 16;
     border-radius: 4px;
     overflow: hidden;
     position: relative;
@@ -478,8 +477,8 @@ body {
 
 .batch-image-item img {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
+    height: auto;
+    display: block;
 }
 
 .batch-image-item .remove-btn {
@@ -566,8 +565,7 @@ body {
     }
 
     .batch-image-item {
-        width: 80px;
-        height: 80px;
+        width: calc(50% - 6px);
     }
 
     .size-controls {
